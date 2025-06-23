@@ -1,0 +1,64 @@
+/* === STILE GENERALE DEL BODY === */
+body {
+    background-color: #146c43; /* verde scuro, stile tavolo da gioco */
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* === SLOT DOVE VENGONO GIOCATE LE CARTE SUL TAVOLO === */
+.card-slot {
+    width: 100px;              /* larghezza slot carta giocata */
+    height: 140px;             /* altezza slot carta giocata */
+    border: 2px dashed #ffffff88; /* bordo tratteggiato bianco trasparente */
+    border-radius: 8px;        /* angoli arrotondati */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #ffffff22; /* sfondo semi-trasparente */
+    transition: all 0.3s ease; /* per eventuali animazioni */
+}
+
+/* === STILE COMUNE DELLE CARTE IN MANO (GIOCATORE E IA) === */
+.card-img {
+    width: 100px;          /* dimensioni immagine carta */
+    height: auto;
+    cursor: pointer;       /* mostra che si può cliccare */
+    transition: transform 0.2s ease;
+}
+
+/* === EFFETTO HOVER SULLE CARTE DEL GIOCATORE === */
+.card-img:hover {
+    transform: translateY(-10px); /* solleva la carta leggermente */
+}
+
+/* === ANIMAZIONE BASE DELLA GIOCATA (da migliorare in fase 1.1) === */
+.played {
+    animation: playedAnim 0.4s ease forwards;
+}
+
+@keyframes playedAnim {
+    0% {
+        transform: scale(1.2) rotate(5deg);
+        opacity: 0.7;
+    }
+    100% {
+        transform: scale(1) rotate(0deg);
+        opacity: 1;
+    }
+}
+
+/* === SLOT CON BRISCOLA E PUNTEGGI === */
+#briscola-suit {
+    font-size: 1.5rem;
+    color: #ffc107; /* giallo evidenziato */
+}
+
+#player-score, #enemy-score {
+    font-weight: bold;
+    font-size: 1.2rem;
+}
+
+/* === BOTTONE START === */
+#start-game {
+    font-size: 1.1rem;
+    padding: 10px 25px;
+}
