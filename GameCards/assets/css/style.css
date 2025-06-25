@@ -62,3 +62,10 @@ body {
     font-size: 1.1rem;
     padding: 10px 25px;
 }
+
+#last-card img {
+    width: 60px;
+    height: auto;
+    border: 2px solid yellow;
+    border-radius: 8px;
+}
