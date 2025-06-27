@@ -69,3 +69,77 @@ body {
     border: 2px solid yellow;
     border-radius: 8px;
 }
+
+/* Log partita a destra */
+#log-wrapper {
+    position: fixed;
+    top: 40px;
+    right: 40px;
+    width: 350px;
+    min-height: 200px;
+    max-height: 70vh;
+    z-index: 100;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+}
+
+#game-log {
+    width: 100%;
+    min-height: 200px;
+    max-height: 60vh;
+    background: #fff;
+    color: #222;
+    padding: 16px;
+    border-radius: 12px;
+    font-family: monospace;
+    font-size: 15px;
+    overflow-y: auto;
+    box-shadow: 0 2px 16px #0002;
+    border: 1.5px solid #e0b97f;
+}
+
+/* === ANIMAZIONI FLY PER GIOCATORE E IA === */
+.fly-to-player {
+    animation: flyPlayer 0.6s forwards;
+}
+.fly-to-ia {
+    animation: flyIA 0.6s forwards;
+}
+
+@keyframes flyPlayer {
+    to {
+        transform: translateY(120px) scale(0.2);
+        opacity: 0;
+    }
+}
+@keyframes flyIA {
+    to {
+        transform: translateY(-120px) scale(0.2);
+        opacity: 0;
+    }
+}
+
+/* Responsive: nascondi o riduci il log su schermi piccoli */
+@media (max-width: 900px) {
+    #log-wrapper {
+        position: static;
+        width: 100%;
+        margin: 20px auto;
+        justify-content: center;
+    }
+    #game-log {
+        max-width: 98vw;
+        min-height: 100px;
+        max-height: 200px;
+        font-size: 13px;
+    }
+}
+
+/* === STILE PER LA CARTA VINCENTE === */
+.winner-card {
+    box-shadow: 0 0 16px 6px #ffe066, 0 0 8px 2px #fff;
+    border: 2.5px solid #ffe066 !important;
+    z-index: 2;
+    transition: box-shadow 0.3s, border 0.3s;
+}

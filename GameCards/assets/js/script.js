@@ -18,8 +18,9 @@ let punteggioIA = 0;
 let modalitaDebug = false; 
 let chiIniziaProssimoTurno = 'giocatore'; // oppure 'ia'
 let giocataIndex = null;
-let cartaBriscola= null;
-
+let cartaBriscola = null;
+let cartaIAInAttesa = null;
+let animazioneInCorso = false;
 
 // === Riferimenti DOM ===
 const enemyHand = document.getElementById('enemy-hand');
@@ -32,8 +33,7 @@ const enemyScore = document.getElementById('enemy-score');
 const startBtn = document.getElementById('start-game');
 const resetBtn = document.getElementById('reset-game');
 const currentDeck = document.getElementById('deck');
-const lastCardSlot =document.getElementById('last-card');
-
+const lastCardSlot = document.getElementById('last-card');
 
 resetBtn.addEventListener('click', () => { 
     playerHand.innerHTML = '';
@@ -42,7 +42,9 @@ resetBtn.addEventListener('click', () => {
     cardEnemySlot.innerHTML = '';
     briscolaSpan.textContent = '?';
     currentDeck.textContent = '0';
-    lastCardSlot.innerHTML = '';})
+    lastCardSlot.innerHTML = '';
+    scriviLog("Partita resettata.");
+});
 
 // === Avvia nuova partita ===
 startBtn.addEventListener('click', () => {
@@ -51,6 +53,7 @@ startBtn.addEventListener('click', () => {
     distribuisciCarte();
     mostraCartaBriscolaFinale();
     aggiornaMani();
+    scriviLog("Nuova partita iniziata!");
 });
 
 // === Reset totale della partita ===
@@ -66,48 +69,10 @@ function resetGame() {
     cardEnemySlot.innerHTML = '';
     briscolaSpan.textContent = '?';
     currentDeck.textContent = "0";
-}
-
-function mostraCartaBriscolaFinale() {
-    if (!cartaBriscola) return;
-
-    const img = creaImmagineCarta(cartaBriscola);
-    img.classList.add('card-img', 'briscola');
     lastCardSlot.innerHTML = '';
-    lastCardSlot.appendChild(img);
-}
-
-//Cambio SEME FRANCESE = SEME SICILIAN
-function convertiSemePerImmagine(seme) {
-    switch (seme) {
-        case '♠': return 'coppe';
-        case '♥': return 'denari';
-        case '♦': return 'bastoni';
-        case '♣': return 'spade';
-        default: return 'coppe'; // fallback: Valutare return funzione in fase di test
-    }
-}
-
-function nomeSemeSiciliano(seme) {
-    switch (seme) {
-        case '♠': return 'Coppe';
-        case '♥': return 'Denari';
-        case '♦': return 'Bastoni';
-        case '♣': return 'Spade';
-        default: return '?';
-    }
-}
-
-
-//Funzione INTERPRETA Carta Figura
-function valoreToSimboloFile(valore) {
-    switch (valore) {
-        case 'J': return 'fante';
-        case 'Q': return 'cavallo';
-        case 'K': return 're';
-        case 'A': return 'asso';
-        default: return valore;
-    }
+    cartaBriscola = null;
+    cartaIAInAttesa = null;
+    chiIniziaProssimoTurno = 'giocatore';
 }
 
 // === Crea un mazzo completo mischiato ===
@@ -119,13 +84,12 @@ function creaMazzo() {
         }
     }
     shuffle(mazzo);
-    cartaBriscola = mazzo[mazzo.length - 1];
-    briscola =cartaBriscola.seme;
+    cartaBriscola = mazzo.pop(); // L'ultima carta è la briscola
+    briscola = cartaBriscola.seme;
     mostraCartaBriscolaFinale();
     briscolaSpan.textContent = nomeSemeSiciliano(briscola);
-    currentDeck.textContent = mazzo.length; // 
+    currentDeck.textContent = mazzo.length;
 }
-
 
 // === Mischia il mazzo ===
 function shuffle(array) {
@@ -137,8 +101,12 @@ function shuffle(array) {
 
 // === Distribuisci 3 carte a testa ===
 function distribuisciCarte() {
-    manoGiocatore = mazzo.splice(0, 3);
-    manoIA = mazzo.splice(0, 3);
+    manoGiocatore = [];
+    manoIA = [];
+    for (let i = 0; i < 3; i++) {
+        manoGiocatore.push(mazzo.shift());
+        manoIA.push(mazzo.shift());
+    }
 }
 
 // === Disegna graficamente le mani ===
@@ -154,16 +122,16 @@ function aggiornaMani() {
         playerHand.appendChild(img);
     });
 
-    // Carte IA (retro)
-   manoIA.forEach((carta) => {
-    let img;
-    if (modalitaDebug) {
-        img = creaImmagineCarta(carta); // mostra la vera carta
-    } else {
-        img = creaImmagineRetroCarta(); // usa funzione corretta
-    }
-    img.classList.add('card-img');
-    enemyHand.appendChild(img);
+    // Carte IA (retro o visibili in debug)
+    manoIA.forEach((carta) => {
+        let img;
+        if (modalitaDebug) {
+            img = creaImmagineCarta(carta);
+        } else {
+            img = creaImmagineRetroCarta();
+        }
+        img.classList.add('card-img');
+        enemyHand.appendChild(img);
     });
 }
 
@@ -180,72 +148,11 @@ function creaImmagineCarta(carta) {
 // Crea retro di ogni carta
 function creaImmagineRetroCarta() {
     const img = document.createElement('img');
-    img.src = 'assets/static/cards/back.png'; // Modifica il path se necessario
+    img.src = 'assets/static/cards/back.png';
     img.alt = 'Carta coperta';
     img.classList.add('card-img');
     return img;
 }
-
-
-// === Gestisce il turno del giocatore e dell'IA ===
-function giocaTurno() {
-    let cartaGiocatore, cartaIA;
-
-    if (chiIniziaProssimoTurno === 'giocatore') {
-        cartaGiocatore = manoGiocatore.splice(giocataIndex, 1)[0];
-        cartaIA = manoIA.splice(Math.floor(Math.random() * manoIA.length), 1)[0];
-    } else {
-        // Se inizia IA, gioca prima lei, poi attende la giocata utente
-        cartaIA = manoIA.splice(Math.floor(Math.random() * manoIA.length), 1)[0];
-        mostraCartaSuTavolo(cardEnemySlot, cartaIA);
-        chiIniziaProssimoTurno = 'giocatore';
-
-        // Aspetta la mossa del giocatore
-        return;
-    }
-
-    mostraCartaSuTavolo(cardPlayerSlot, cartaGiocatore);
-    mostraCartaSuTavolo(cardEnemySlot, cartaIA);
-
-    const prendeGiocatore = valutaChiPrende(cartaGiocatore, cartaIA);
-    const puntiPresi = punteggioCarta[cartaGiocatore.val] + punteggioCarta[cartaIA.val];
-
-    if (prendeGiocatore) {
-        punteggioGiocatore += puntiPresi;
-        chiIniziaProssimoTurno = 'giocatore';
-        playerScore.textContent = punteggioGiocatore;
-    } else {
-        punteggioIA += puntiPresi;
-        chiIniziaProssimoTurno = 'ia';
-        enemyScore.textContent = punteggioIA;
-    }
-
-    setTimeout(() => {
-        cardPlayerSlot.innerHTML = '';
-        cardEnemySlot.innerHTML = '';
-        refillMani();
-        aggiornaMani();
-        verificaFinePartita();
-
-        // Se inizia IA, avvia il prossimo turno da sola
-        if (chiIniziaProssimoTurno === 'ia') {
-            setTimeout(() => {
-                giocaTurno(); // IA inizia di nuovo
-            }, 600);
-        }
-    }, 1200);
-}
-
-
-function giocaTurnoGiocatore(indexCarta) {
-    giocataIndex = indexCarta;
-    
-    // Se il giocatore inizia il turno
-    if (chiIniziaProssimoTurno === 'giocatore') {
-        giocaTurno();
-    }
-}
-
 
 // === Mostra carta sul tavolo ===
 function mostraCartaSuTavolo(slot, carta) {
@@ -255,8 +162,135 @@ function mostraCartaSuTavolo(slot, carta) {
     slot.appendChild(img);
 }
 
+// === Gestisce il turno del giocatore e dell'IA ===
+
+function giocaTurnoGiocatore(indexCarta) {
+    // Blocca il click se non è il turno del giocatore o se l'IA deve ancora iniziare
+    if (chiIniziaProssimoTurno === 'ia' && !cartaIAInAttesa) return;
+    if (manoGiocatore.length === 0 || manoIA.length === 0) return;
+    // Giocatore gioca la carta scelta
+    const cartaGiocatore = manoGiocatore.splice(indexCarta, 1)[0];
+    mostraCartaSuTavolo(cardPlayerSlot, cartaGiocatore);
+
+    // IA gioca la sua carta (random, puoi migliorare l'IA)
+    let cartaIA;
+    if (cartaIAInAttesa) {
+        // Se l'IA aveva già scelto la carta (turno iniziato da IA)
+        cartaIA = cartaIAInAttesa;
+        // Rimuovi la carta dalla mano IA solo ora!
+        const idx = manoIA.findIndex(c => c === cartaIA);
+        if (idx !== -1) manoIA.splice(idx, 1);
+        cartaIAInAttesa = null;
+    } else {
+        // Se il giocatore inizia, IA risponde subito
+        const iaIndex = Math.floor(Math.random() * manoIA.length);
+        cartaIA = manoIA.splice(iaIndex, 1)[0];
+        mostraCartaSuTavolo(cardEnemySlot, cartaIA);
+    }
+
+    // Calcola chi prende
+    const prendeGiocatore = valutaChiPrende(cartaGiocatore, cartaIA, chiIniziaProssimoTurno);
+    const puntiPresi = punteggioCarta[cartaGiocatore.val] + punteggioCarta[cartaIA.val];
+
+    // 1. Aspetta 2 secondi con le carte visibili
+    setTimeout(() => {
+        // 2. Evidenzia la carta vincente
+        if (prendeGiocatore) {
+            cardPlayerSlot.firstChild.classList.add('winner-card');
+        } else {
+            cardEnemySlot.firstChild.classList.add('winner-card');
+        }
+
+        // 3. Dopo 0.5s, anima le carte verso chi prende
+        setTimeout(() => {
+            if (prendeGiocatore) {
+                cardPlayerSlot.firstChild.classList.remove('winner-card');
+                cardPlayerSlot.firstChild.classList.add('fly-to-player');
+                cardEnemySlot.firstChild.classList.add('fly-to-player');
+            } else {
+                cardEnemySlot.firstChild.classList.remove('winner-card');
+                cardPlayerSlot.firstChild.classList.add('fly-to-ia');
+                cardEnemySlot.firstChild.classList.add('fly-to-ia');
+            }
+
+            // 4. Dopo l’animazione (0.7s), svuota, refill e aggiorna
+            setTimeout(() => {
+                if (prendeGiocatore) {
+                    punteggioGiocatore += puntiPresi;
+                    playerScore.textContent = punteggioGiocatore;
+                    scriviLog(`Giocatore riceve ${cartaGiocatore.val} di ${nomeSemeSiciliano(cartaGiocatore.seme)} e ${cartaIA.val} di ${nomeSemeSiciliano(cartaIA.seme)}`);
+                    scriviLog(`Prende il giocatore (+${puntiPresi})`);
+                } else {
+                    punteggioIA += puntiPresi;
+                    enemyScore.textContent = punteggioIA;
+                    scriviLog(`IA riceve ${cartaGiocatore.val} di ${nomeSemeSiciliano(cartaGiocatore.seme)} e ${cartaIA.val} di ${nomeSemeSiciliano(cartaIA.seme)}`);
+                    scriviLog(`Prende l'IA (+${puntiPresi})`);
+                }
+
+                cardPlayerSlot.innerHTML = '';
+                cardEnemySlot.innerHTML = '';
+
+                // PRIMA aggiorna chi inizia il prossimo turno!
+                if (prendeGiocatore) {
+                    chiIniziaProssimoTurno = 'giocatore';
+                } else {
+                    chiIniziaProssimoTurno = 'ia';
+                }
+
+                refillManiBriscola();
+                aggiornaMani();
+                verificaFinePartita();
+
+                // Se deve iniziare l'IA, gioca subito il suo turno
+                if (chiIniziaProssimoTurno === 'ia' && manoIA.length > 0 && manoGiocatore.length > 0) {
+                    setTimeout(() => {
+                        turnoIA();
+                    }, 400);
+                }
+            }, 700);
+
+        }, 500);
+
+    }, 500);
+}
+
+function turnoIA() {
+    if (manoIA.length === 0) return;
+    // L'IA sceglie quale carta giocare (puoi migliorare la logica)
+    const iaIndex = Math.floor(Math.random() * manoIA.length);
+    cartaIAInAttesa = manoIA[iaIndex]; // NON rimuovere ancora!
+    mostraCartaSuTavolo(cardEnemySlot, cartaIAInAttesa);
+}
+
+// === Logica refill mani con briscola finale ===
+function refillManiBriscola() {
+    // Se il mazzo è vuoto, non si pesca più
+    if (mazzo.length === 0 && cartaBriscola === null) return;
+
+    // Chi prende pesca per primo
+    if (mazzo.length > 0) {
+        if (chiIniziaProssimoTurno === 'giocatore') {
+            if (manoGiocatore.length < 3) manoGiocatore.push(mazzo.shift());
+            if (manoIA.length < 3) manoIA.push(mazzo.shift());
+        } else {
+            if (manoIA.length < 3) manoIA.push(mazzo.shift());
+            if (manoGiocatore.length < 3) manoGiocatore.push(mazzo.shift());
+        }
+    } else if (cartaBriscola) {
+        // Ultima pescata: chi prende prende la briscola visibile
+        if (chiIniziaProssimoTurno === 'giocatore' && manoGiocatore.length < 3) {
+            manoGiocatore.push(cartaBriscola);
+        } else if (chiIniziaProssimoTurno === 'ia' && manoIA.length < 3) {
+            manoIA.push(cartaBriscola);
+        }
+        cartaBriscola = null;
+        lastCardSlot.innerHTML = '';
+    }
+    currentDeck.textContent = mazzo.length;
+}
+
 // === Valuta chi prende la mano ===
-function valutaChiPrende(c1, c2) {
+function valutaChiPrende(c1, c2, chiHaIniziato) {
     if (c1.seme === c2.seme) {
         return valori.indexOf(c1.val) > valori.indexOf(c2.val);
     } else if (c2.seme === briscola) {
@@ -264,27 +298,36 @@ function valutaChiPrende(c1, c2) {
     } else if (c1.seme === briscola) {
         return true;
     } else {
-        return true; // chi gioca per primo prende
+        // Prende chi ha giocato per primo
+        return chiHaIniziato === 'giocatore';
     }
 }
 
-// === Aggiunge carte se il mazzo non è vuoto ===
-function refillMani() {
-    if (mazzo.length > 0) {
-        if (manoGiocatore.length < 3) {
-            manoGiocatore.push(mazzo.shift());
+// === Motivo della presa ===
+function motivoPresa(c1, c2, chiHaIniziato) {
+    if (c1.seme === c2.seme) {
+        if (valori.indexOf(c1.val) > valori.indexOf(c2.val)) {
+            return "il giocatore ha la carta più alta dello stesso seme";
+        } else {
+            return "l'IA ha la carta più alta dello stesso seme";
         }
-        if (manoIA.length < 3) {
-            manoIA.push(mazzo.shift());
-        }
+    } else if (c2.seme === briscola) {
+        return "l'IA ha giocato una briscola";
+    } else if (c1.seme === briscola) {
+        return "il giocatore ha giocato una briscola";
+    } else {
+        return `prende chi ha giocato per primo (${chiHaIniziato})`;
     }
-    currentDeck.textContent = mazzo.length; // 
 }
-
 
 // === Controlla se la partita è finita ===
 function verificaFinePartita() {
-    if (mazzo.length === 0 && manoGiocatore.length === 0 && manoIA.length === 0) {
+    if (
+        mazzo.length === 0 &&
+        cartaBriscola === null &&
+        manoGiocatore.length === 0 &&
+        manoIA.length === 0
+    ) {
         let messaggio;
         if (punteggioGiocatore > punteggioIA) {
             messaggio = "Hai vinto! 🎉";
@@ -293,17 +336,68 @@ function verificaFinePartita() {
         } else {
             messaggio = "Pareggio! 🤝";
         }
-
         setTimeout(() => {
             alert(`Partita terminata!\n${messaggio}`);
         }, 300);
+        scriviLog("Partita terminata! " + messaggio);
     }
 }
 
+// === Mostra la briscola finale ===
+function mostraCartaBriscolaFinale() {
+    if (!cartaBriscola) {
+        lastCardSlot.innerHTML = '';
+        return;
+    }
+    const img = creaImmagineCarta(cartaBriscola);
+    img.classList.add('card-img', 'briscola');
+    lastCardSlot.innerHTML = '';
+    lastCardSlot.appendChild(img);
+}
 
+// === Utility ===
+function convertiSemePerImmagine(seme) {
+    switch (seme) {
+        case '♠': return 'coppe';
+        case '♥': return 'denari';
+        case '♦': return 'bastoni';
+        case '♣': return 'spade';
+        default: return 'coppe';
+    }
+}
+
+function nomeSemeSiciliano(seme) {
+    switch (seme) {
+        case '♠': return 'Coppe';
+        case '♥': return 'Denari';
+        case '♦': return 'Bastoni';
+        case '♣': return 'Spade';
+        default: return '?';
+    }
+}
+
+function valoreToSimboloFile(valore) {
+    switch (valore) {
+        case 'J': return 'fante';
+        case 'Q': return 'cavallo';
+        case 'K': return 're';
+        case 'A': return 'asso';
+        default: return valore;
+    }
+}
+
+// === Debug toggle ===
 document.getElementById('debug-toggle').addEventListener('click', () => {
     modalitaDebug = !modalitaDebug;
     document.getElementById('debug-toggle').textContent = `Modalità Debug: ${modalitaDebug ? 'ON' : 'OFF'}`;
     aggiornaMani();
 });
+
+// === Log partita ===
+function scriviLog(msg) {
+    const logDiv = document.getElementById('game-log');
+    if (!logDiv) return;
+    logDiv.innerHTML += msg + "<br>";
+    logDiv.scrollTop = logDiv.scrollHeight;
+}
 
