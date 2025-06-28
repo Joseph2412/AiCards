@@ -192,8 +192,6 @@ async function giocaTurnoGiocatore(indexCarta) {
     let cartaIA;
     if (cartaIAInAttesa) {
         cartaIA = cartaIAInAttesa;
-        const idx = manoIA.findIndex(c => c === cartaIA);
-        if (idx !== -1) manoIA.splice(idx, 1);
         cartaIAInAttesa = null;
     } else {
         // IA risponde con AI
@@ -201,6 +199,9 @@ async function giocaTurnoGiocatore(indexCarta) {
         cartaIA = cartaIAInAttesa;
         cartaIAInAttesa = null;
     }
+    // RIMUOVI SEMPRE la carta giocata dalla mano IA
+    const idx = manoIA.findIndex(c => c === cartaIA);
+    if (idx !== -1) manoIA.splice(idx, 1);
 
     // Calcola chi prende
     const prendeGiocatore = valutaChiPrende(cartaGiocatore, cartaIA, chiIniziaProssimoTurno);
@@ -356,11 +357,6 @@ function refillManiBriscola() {
     // Se sia mazzo che briscola sono finite, non si pesca più
     if (mazzo.length === 0 && cartaBriscola === null) return;
 
-    // Calcola quante carte devono essere pescate
-    let carteDaPescare = 0;
-    if (mazzo.length > 0) carteDaPescare += mazzo.length;
-    if (cartaBriscola) carteDaPescare += 1;
-
     // Chi prende pesca per primo
     let ordinePesca = chiIniziaProssimoTurno === 'giocatore'
         ? [manoGiocatore, manoIA]
@@ -380,9 +376,9 @@ function refillManiBriscola() {
             lastCardSlot.innerHTML = '';
         }
     } else {
-        // Caso normale
+        // Caso normale: refill fino a 3 carte per ciascuno, in ordine
         for (let mano of ordinePesca) {
-            if (mano.length < 3) {
+            while (mano.length < 3 && (mazzo.length > 0 || cartaBriscola)) {
                 if (mazzo.length > 0) {
                     mano.push(mazzo.shift());
                 } else if (cartaBriscola) {
