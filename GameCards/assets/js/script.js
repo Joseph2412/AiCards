@@ -264,29 +264,58 @@ function turnoIA() {
 
 // === Logica refill mani con briscola finale ===
 function refillManiBriscola() {
-    // Se il mazzo è vuoto, non si pesca più
-    if (mazzo.length === 0 && cartaBriscola === null) return;
+    // Conta anche la briscola come carta pescabile
+    let carteResidue = mazzo.length + (cartaBriscola ? 1 : 0);
+
+    // Se non ci sono più carte da pescare, esci
+    if (carteResidue === 0) return;
 
     // Chi prende pesca per primo
-    if (mazzo.length > 0) {
+    if (carteResidue > 0) {
         if (chiIniziaProssimoTurno === 'giocatore') {
-            if (manoGiocatore.length < 3) manoGiocatore.push(mazzo.shift());
-            if (manoIA.length < 3) manoIA.push(mazzo.shift());
+            // Giocatore pesca per primo
+            if (manoGiocatore.length < 3) {
+                if (mazzo.length > 0) {
+                    manoGiocatore.push(mazzo.shift());
+                } else if (cartaBriscola) {
+                    manoGiocatore.push(cartaBriscola);
+                    cartaBriscola = null;
+                    lastCardSlot.innerHTML = '';
+                }
+            }
+            if (manoIA.length < 3) {
+                if (mazzo.length > 0) {
+                    manoIA.push(mazzo.shift());
+                } else if (cartaBriscola) {
+                    manoIA.push(cartaBriscola);
+                    cartaBriscola = null;
+                    lastCardSlot.innerHTML = '';
+                }
+            }
         } else {
-            if (manoIA.length < 3) manoIA.push(mazzo.shift());
-            if (manoGiocatore.length < 3) manoGiocatore.push(mazzo.shift());
+            // IA pesca per prima
+            if (manoIA.length < 3) {
+                if (mazzo.length > 0) {
+                    manoIA.push(mazzo.shift());
+                } else if (cartaBriscola) {
+                    manoIA.push(cartaBriscola);
+                    cartaBriscola = null;
+                    lastCardSlot.innerHTML = '';
+                }
+            }
+            if (manoGiocatore.length < 3) {
+                if (mazzo.length > 0) {
+                    manoGiocatore.push(mazzo.shift());
+                } else if (cartaBriscola) {
+                    manoGiocatore.push(cartaBriscola);
+                    cartaBriscola = null;
+                    lastCardSlot.innerHTML = '';
+                }
+            }
         }
-    } else if (cartaBriscola) {
-        // Ultima pescata: chi prende prende la briscola visibile
-        if (chiIniziaProssimoTurno === 'giocatore' && manoGiocatore.length < 3) {
-            manoGiocatore.push(cartaBriscola);
-        } else if (chiIniziaProssimoTurno === 'ia' && manoIA.length < 3) {
-            manoIA.push(cartaBriscola);
-        }
-        cartaBriscola = null;
-        lastCardSlot.innerHTML = '';
     }
-    currentDeck.textContent = mazzo.length;
+    // Aggiorna il conteggio del mazzo (conta anche la briscola se ancora presente)
+    currentDeck.textContent = mazzo.length + (cartaBriscola ? 1 : 0);
 }
 
 // === Valuta chi prende la mano ===
