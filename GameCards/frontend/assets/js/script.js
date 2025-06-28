@@ -21,6 +21,7 @@ let giocataIndex = null;
 let cartaBriscola = null;
 let cartaIAInAttesa = null;
 let animazioneInCorso = false;
+let attesaIA = false;
 
 // === Riferimenti DOM ===
 const enemyHand = document.getElementById('enemy-hand');
@@ -179,7 +180,7 @@ function mostraCartaSuTavolo(slot, carta) {
 
 // === Gestisce il turno del giocatore e dell'IA ===
 
-function giocaTurnoGiocatore(indexCarta) {
+async function giocaTurnoGiocatore(indexCarta) {
     // Blocca il click se non è il turno del giocatore o se l'IA deve ancora iniziare
     if (chiIniziaProssimoTurno === 'ia' && !cartaIAInAttesa) return;
     if (manoGiocatore.length === 0 || manoIA.length === 0) return;
@@ -187,20 +188,17 @@ function giocaTurnoGiocatore(indexCarta) {
     const cartaGiocatore = manoGiocatore.splice(indexCarta, 1)[0];
     mostraCartaSuTavolo(cardPlayerSlot, cartaGiocatore);
 
-    // IA gioca la sua carta (random, puoi migliorare l'IA)
     let cartaIA;
     if (cartaIAInAttesa) {
-        // Se l'IA aveva già scelto la carta (turno iniziato da IA)
         cartaIA = cartaIAInAttesa;
-        // Rimuovi la carta dalla mano IA solo ora!
         const idx = manoIA.findIndex(c => c === cartaIA);
         if (idx !== -1) manoIA.splice(idx, 1);
         cartaIAInAttesa = null;
     } else {
-        // Se il giocatore inizia, IA risponde subito
-        const iaIndex = Math.floor(Math.random() * manoIA.length);
-        cartaIA = manoIA.splice(iaIndex, 1)[0];
-        mostraCartaSuTavolo(cardEnemySlot, cartaIA);
+        // IA risponde con AI
+        await rispostaIAAlGiocatore();
+        cartaIA = cartaIAInAttesa;
+        cartaIAInAttesa = null;
     }
 
     // Calcola chi prende
@@ -254,11 +252,21 @@ function giocaTurnoGiocatore(indexCarta) {
 
                 refillManiBriscola();
                 aggiornaMani();
+
+                if (modalitaDebug) {
+                    scriviLog(
+                        `Carte Giocatore dopo refill: ${manoGiocatore.map(c => `${c.val}${c.seme}`).join(', ')}`
+                    );
+                    scriviLog(
+                        `Carte IA dopo refill: ${manoIA.map(c => `${c.val}${c.seme}`).join(', ')}`
+                    );
+                }
+
                 verificaFinePartita();
 
                 // Se deve iniziare l'IA, gioca subito il suo turno
                 if (chiIniziaProssimoTurno === 'ia' && manoIA.length > 0 && manoGiocatore.length > 0) {
-                    setTimeout(async() => {
+                    setTimeout(async () => {
                         await turnoIA();
                     }, 400);
                 }
@@ -271,6 +279,8 @@ function giocaTurnoGiocatore(indexCarta) {
 
 async function turnoIA() {
     if (manoIA.length === 0) return;
+    attesaIA = true;
+    scriviLog("L'IA sta pensando...");
 
     // Costruzione del prompt
     const prompt = `
@@ -282,24 +292,63 @@ Non conosci le carte dell'avversario.
 Quale carta giochi tra le tue? Rispondi solo con una, nel formato: "3♥"
 `;
 
-    // Chiedi alla IA
-    const risposta = await chiediCartaAllaIA(prompt);
+    let risposta = null;
+    try {
+        risposta = await chiedeCartaAllIA(prompt.trim());
+    } catch (e) {
+        scriviLog("⚠️ Errore nella risposta IA, uso scelta casuale. " + e.message);
+    }
+
+    if (modalitaDebug) {
+        scriviLog("Prompt IA: " + prompt.replace(/\n/g, " "));
+        scriviLog("Risposta IA: " + risposta);
+    }
 
     // Trova la carta nella mano
-    const cartaTrovata = manoIA.find(c => `${c.val}${c.seme}` === risposta.trim());
-
-    if (cartaTrovata) {
-        cartaIAInAttesa = cartaTrovata;
-        mostraCartaSuTavolo(cardEnemySlot, cartaIAInAttesa);
-    } else {
-        // Fallback random in caso di errore
+    let cartaTrovata = manoIA.find(c => `${c.val}${c.seme}` === (risposta ? risposta.trim() : ''));
+    if (!cartaTrovata) {
         const iaIndex = Math.floor(Math.random() * manoIA.length);
-        cartaIAInAttesa = manoIA[iaIndex];
-        mostraCartaSuTavolo(cardEnemySlot, cartaIAInAttesa);
+        cartaTrovata = manoIA[iaIndex];
         scriviLog("⚠️ Risposta IA non valida, usata scelta casuale.");
     }
+    cartaIAInAttesa = cartaTrovata;
+    mostraCartaSuTavolo(cardEnemySlot, cartaIAInAttesa);
+    attesaIA = false;
 }
 
+async function rispostaIAAlGiocatore() {
+    attesaIA = true;
+    scriviLog("L'IA sta pensando...");
+
+    const prompt = `
+Stai giocando a Briscola. La briscola è: ${briscola}
+Le tue carte sono: ${manoIA.map(c => `${c.val}${c.seme}`).join(', ')}
+L'avversario ha giocato: ${cardPlayerSlot.firstChild ? cardPlayerSlot.firstChild.alt : 'una carta'}
+Quale carta giochi tra le tue? Rispondi solo con una, nel formato: "3♥"
+`;
+
+    let risposta = null;
+    try {
+        risposta = await chiedeCartaAllIA(prompt.trim());
+    } catch (e) {
+        scriviLog("⚠️ Errore nella risposta IA, uso scelta casuale. " + e.message);
+    }
+
+    if (modalitaDebug) {
+        scriviLog("Prompt IA: " + prompt.replace(/\n/g, " "));
+        scriviLog("Risposta IA: " + risposta);
+    }
+
+    let cartaTrovata = manoIA.find(c => `${c.val}${c.seme}` === (risposta ? risposta.trim() : ''));
+    if (!cartaTrovata) {
+        const iaIndex = Math.floor(Math.random() * manoIA.length);
+        cartaTrovata = manoIA[iaIndex];
+        scriviLog("⚠️ Risposta IA non valida, usata scelta casuale.");
+    }
+    cartaIAInAttesa = cartaTrovata; // <-- fondamentale!
+    mostraCartaSuTavolo(cardEnemySlot, cartaIAInAttesa);
+    attesaIA = false;
+}
 
 // === Logica refill mani con briscola finale ===
 function refillManiBriscola() {
@@ -470,12 +519,19 @@ function scriviLog(msg) {
 }
 
 async function chiedeCartaAllIA(prompt){
-    const res = await fetch('http://localhost:3000/a1', {
+    const res = await fetch('http://localhost:3000/ai', {
         method: "POST",
         headers: {"Content-Type" : "application/json"},
-        body: JSON.stringify({prompt: prompt})
+        body: JSON.stringify({prompt: prompt.trim()})
     });
-    const data = await res.json();
+    let data;
+    try {
+        data = await res.json();
+    } catch (e) {
+        const text = await res.text();
+        scriviLog("⚠️ Risposta non JSON dal backend: " + text);
+        throw new Error("Risposta non JSON dal backend: " + text);
+    }
     console.log("LLaMA ha Risposto: ", data.risposta);
     return data.risposta;
 }
