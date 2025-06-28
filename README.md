@@ -61,7 +61,7 @@
 - Node.js installato
 - Ollama installato e funzionante
 - LLaMA3 scaricato e disponibile (es. `llama3:latest`)
-- Estensione Live Server (consigliata)
+- Estensione Live Server (FORTEMENTE consigliata)
 
 ### 2. Clona la repo
 
@@ -76,6 +76,13 @@ cd GameCards
 cd backend
 node server.js
 ```
+### 4. Avvia il Gioco con LiveServer
+
+```bash
+cd fronend
+Avvia LiveServer
+```
+
 
 Verifica che **Ollama sia attivo** (`ollama run llama3`) o che risponda alla porta configurata (`http://localhost:11434`).
 
