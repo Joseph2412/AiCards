@@ -52,7 +52,8 @@ startBtn.addEventListener('click', () => {
     verificaConnessioneOllama();
     resetGame();
     creaMazzo();
-    distribuisciCarte();
+    distribuisciCarte(); // <-- PRIMA distribuisci le carte
+    prendiBriscola();    // <-- POI prendi la briscola
     mostraCartaBriscolaFinale();
     aggiornaMani();
     scriviLog("Nuova partita iniziata!");
@@ -100,10 +101,10 @@ function creaMazzo() {
         }
     }
     shuffle(mazzo);
-    cartaBriscola = mazzo.pop(); // L'ultima carta è la briscola
-    briscola = cartaBriscola.seme;
-    mostraCartaBriscolaFinale();
-    briscolaSpan.textContent = nomeSemeSiciliano(briscola);
+    // NON estrarre qui la briscola!
+    // cartaBriscola = mazzo.pop();
+    // briscola = cartaBriscola.seme;
+    // briscolaSpan.textContent = nomeSemeSiciliano(briscola);
     currentDeck.textContent = mazzo.length;
 }
 
@@ -352,56 +353,48 @@ Quale carta giochi tra le tue? Rispondi solo con una, nel formato: "3♥"
 
 // === Logica refill mani con briscola finale ===
 function refillManiBriscola() {
-    // Conta anche la briscola come carta pescabile
-    let carteResidue = mazzo.length + (cartaBriscola ? 1 : 0);
+    // Se sia mazzo che briscola sono finite, non si pesca più
+    if (mazzo.length === 0 && cartaBriscola === null) return;
 
-    // Se non ci sono più carte da pescare, esci
-    if (carteResidue === 0) return;
+    // Calcola quante carte devono essere pescate
+    let carteDaPescare = 0;
+    if (mazzo.length > 0) carteDaPescare += mazzo.length;
+    if (cartaBriscola) carteDaPescare += 1;
 
     // Chi prende pesca per primo
-    if (carteResidue > 0) {
-        if (chiIniziaProssimoTurno === 'giocatore') {
-            // Giocatore pesca per primo
-            if (manoGiocatore.length < 3) {
+    let ordinePesca = chiIniziaProssimoTurno === 'giocatore'
+        ? [manoGiocatore, manoIA]
+        : [manoIA, manoGiocatore];
+
+    // Caso speciale: solo 1 carta nel mazzo e la briscola visibile
+    if (mazzo.length === 1 && cartaBriscola) {
+        // Chi prende prende la carta coperta
+        if (ordinePesca[0].length < 3) {
+            ordinePesca[0].push(mazzo.shift());
+        }
+        // Chi perde prende la briscola visibile
+        if (ordinePesca[1].length < 3) {
+            ordinePesca[1].push(cartaBriscola);
+            if (modalitaDebug) scriviLog(`Briscola pescata da ${ordinePesca[1] === manoGiocatore ? 'Giocatore' : 'IA'}: ${cartaBriscola.val}${cartaBriscola.seme}`);
+            cartaBriscola = null;
+            lastCardSlot.innerHTML = '';
+        }
+    } else {
+        // Caso normale
+        for (let mano of ordinePesca) {
+            if (mano.length < 3) {
                 if (mazzo.length > 0) {
-                    manoGiocatore.push(mazzo.shift());
+                    mano.push(mazzo.shift());
                 } else if (cartaBriscola) {
-                    manoGiocatore.push(cartaBriscola);
-                    cartaBriscola = null;
-                    lastCardSlot.innerHTML = '';
-                }
-            }
-            if (manoIA.length < 3) {
-                if (mazzo.length > 0) {
-                    manoIA.push(mazzo.shift());
-                } else if (cartaBriscola) {
-                    manoIA.push(cartaBriscola);
-                    cartaBriscola = null;
-                    lastCardSlot.innerHTML = '';
-                }
-            }
-        } else {
-            // IA pesca per prima
-            if (manoIA.length < 3) {
-                if (mazzo.length > 0) {
-                    manoIA.push(mazzo.shift());
-                } else if (cartaBriscola) {
-                    manoIA.push(cartaBriscola);
-                    cartaBriscola = null;
-                    lastCardSlot.innerHTML = '';
-                }
-            }
-            if (manoGiocatore.length < 3) {
-                if (mazzo.length > 0) {
-                    manoGiocatore.push(mazzo.shift());
-                } else if (cartaBriscola) {
-                    manoGiocatore.push(cartaBriscola);
+                    mano.push(cartaBriscola);
+                    if (modalitaDebug) scriviLog(`Briscola pescata da ${mano === manoGiocatore ? 'Giocatore' : 'IA'}: ${cartaBriscola.val}${cartaBriscola.seme}`);
                     cartaBriscola = null;
                     lastCardSlot.innerHTML = '';
                 }
             }
         }
     }
+
     // Aggiorna il conteggio del mazzo (conta anche la briscola se ancora presente)
     currentDeck.textContent = mazzo.length + (cartaBriscola ? 1 : 0);
 }
@@ -534,4 +527,11 @@ async function chiedeCartaAllIA(prompt){
     }
     console.log("LLaMA ha Risposto: ", data.risposta);
     return data.risposta;
+}
+
+function prendiBriscola() {
+    cartaBriscola = mazzo.pop(); // L'ultima carta è la briscola
+    briscola = cartaBriscola.seme;
+    briscolaSpan.textContent = nomeSemeSiciliano(briscola);
+    currentDeck.textContent = mazzo.length;
 }
